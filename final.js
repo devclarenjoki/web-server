@@ -4,12 +4,13 @@ const { join } = require("path");
 const { readFile } = require("fs/promises");
 const { renderFile } = require("ejs");
 const { readFileSync } = require("fs");
+const express = require("express");
 
-//port number
+const app = express();
+
 const PORT = process.env.PORT || 8080;
 
-// allowed methods
-const allowedMethods = ["GET", "POST"];
+const allowedMethods = ["get", "post"];
 
 const options = {
   key: readFileSync("key.pem"),
@@ -18,37 +19,26 @@ const options = {
 
 // Create the server.
 const server = createServer(options, async (req, res) => {
-  //check request headers
-  const headers = req.headers;
-
-  if (!headers["content-type"] && !headers["content-length"]) {
-    return await BadRequestController(req, res);
-  }
-
-  // Get the request method.
   const method = req.method;
 
-  // Check if the request method is allowed.
   if (!allowedMethods.includes(method.toLowerCase())) {
     return await MethodNotAllowedController(req, res);
   }
 
-  // Get the request url.
   const url = parse(req.url, true);
 
-  // Get the request pathname.
   const { pathname } = url;
 
-  // If the request url is /, then return the index.html file.
   if (pathname === "/") {
     const data = await readFile("public/index.html");
 
-    res.writeHead(200, { "Content-Type": "text/html" });
+    res.writeHead(200, {
+      "Content-Type": "text/html",
+      "Content-Length": data.length,
+    });
     res.write(data);
     return res.end();
   }
-
-  // get the first element of the pathname.
 
   const [_, staticOrDynamicPath] = pathname.split("/");
 
@@ -75,7 +65,10 @@ server.listen(PORT, () => {
 
 //bad request controller
 const BadRequestController = async (req, res) => {
-  res.writeHead(400, { "Content-Type": "text/html" });
+  res.writeHead(400, {
+    "Content-Type": "text/html",
+    "Content-Length": "Bad Request",
+  });
   res.write("Bad Request");
   return res.end("Bad Request");
 };
@@ -90,27 +83,29 @@ const MethodNotAllowedController = async (req, res) => {
 // not found controller
 const NotFoundController = async (req, res) => {
   const data = await readFile(join("public", "404.html"));
-  res.writeHead(404, { "Content-Type": "text/html" });
+  res.writeHead(404, {
+    "Content-Type": "text/html",
+    "Content-Length": data.length,
+  });
   res.write(data);
   return res.end();
 };
 
 // static html controller
 const StaticController = async (req, res) => {
-  // Get the request url.
   const url = parse(req.url, true);
 
-  // Get the request pathname.
   const { pathname } = url;
 
-  // get the third element of the pathname.
   const [_, __, filename] = pathname.split("/");
 
   try {
-    // Read the html file from the public folder.
     const data = await readFile(join("public/static", filename));
 
-    res.writeHead(200, { "Content-Type": "text/html" });
+    res.writeHead(200, {
+      "Content-Type": "text/html",
+      "Content-Length": data.length,
+    });
     res.write(data);
     return res.end();
   } catch (error) {
@@ -120,21 +115,16 @@ const StaticController = async (req, res) => {
 
 // dynamic html controller
 const DynamicController = async (req, res) => {
-  // Get the request url.
   const url = parse(req.url, true);
 
-  // Get the request pathname.
   const { pathname } = url;
 
-  // Get the third element of the pathname.
   const [_, __, filename] = pathname.split("/");
 
   try {
-    // Parse the ejs file from the public/dynamic folder.
     const data = await renderFile(
       join("public/dynamic", filename),
       {
-        // Add some data to the template.
         dynamicContent: "This is a dynamic html page",
       },
       {
@@ -142,7 +132,10 @@ const DynamicController = async (req, res) => {
       }
     );
 
-    res.writeHead(200, { "Content-Type": "text/html" });
+    res.writeHead(200, {
+      "Content-Type": "text/html",
+      "Content-Length": data.length,
+    });
     res.write(data);
     return res.end();
   } catch (error) {
