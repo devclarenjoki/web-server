@@ -1,32 +1,35 @@
-const { createServer } = require("http");
+const { createServer } = require("https");
 const { parse } = require("url");
 const { join } = require("path");
 const { readFile } = require("fs/promises");
 const { renderFile } = require("ejs");
+const { readFileSync } = require("fs");
 
-// Define the port on which it will run on. First checks environment variables for PORT and falls back to 8080,
-const PORT = process.env.PORT ?? 8080;
+//port number
+const PORT = process.env.PORT || 8080;
 
-// Define the allowed HTTP request methods.
-const ALLOWED_METHODS = ["get", "post"];
+// allowed methods
+const allowedMethods = ["GET", "POST"];
+
+const options = {
+  key: readFileSync("key.pem"),
+  cert: readFileSync("cert.pem"),
+};
 
 // Create the server.
-const server = createServer(async (req, res) => {
-  /*
-    // Uncomment to Check for content-type and content-length headers.
-    const headers = req.headers;
+const server = createServer(options, async (req, res) => {
+  //check request headers
+  const headers = req.headers;
 
-    if (!headers["content-type"] && !headers["content-length"]) {
-        // Do something
-        return await BadRequestController(req, res);
-    }
-  */
+  if (!headers["content-type"] && !headers["content-length"]) {
+    return await BadRequestController(req, res);
+  }
 
   // Get the request method.
   const method = req.method;
 
   // Check if the request method is allowed.
-  if (!ALLOWED_METHODS.includes(method.toLowerCase())) {
+  if (!allowedMethods.includes(method.toLowerCase())) {
     return await MethodNotAllowedController(req, res);
   }
 
@@ -45,10 +48,11 @@ const server = createServer(async (req, res) => {
     return res.end();
   }
 
-  // Split the pathname into an array and get the second element using es6 array destructuring
+  // get the first element of the pathname.
+
   const [_, staticOrDynamicPath] = pathname.split("/");
 
-  // We only want to match /static and /dynamic. e.g. http:localhost:8080/static/index.html, http:localhost:8080/dynamic/index.ejs
+  //check if the first element of the pathname is static or dynamic
   switch (staticOrDynamicPath) {
     case "static": {
       return await StaticController(req, res);
@@ -64,26 +68,26 @@ const server = createServer(async (req, res) => {
   }
 });
 
-// Start the server and listen on the port.
+// Start the server.
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/`);
+  console.log(`Server running at https://localhost:${PORT}/`);
 });
 
-// This is a bad request controller. Will return a response with status code 400.
+//bad request controller
 const BadRequestController = async (req, res) => {
   res.writeHead(400, { "Content-Type": "text/html" });
   res.write("Bad Request");
   return res.end("Bad Request");
 };
 
-// This is a method not allowed controller. Will return a response with status code 405.
+// method not allowed controller
 const MethodNotAllowedController = async (req, res) => {
   res.writeHead(405, { "Content-Type": "text/html" });
   res.write("Method Not Allowed");
   return res.end("Method Not Allowed");
 };
 
-// This is a not found controller. Will return a response with status code 404.
+// not found controller
 const NotFoundController = async (req, res) => {
   const data = await readFile(join("public", "404.html"));
   res.writeHead(404, { "Content-Type": "text/html" });
@@ -91,7 +95,7 @@ const NotFoundController = async (req, res) => {
   return res.end();
 };
 
-// This is the static html controller. Will read .html files inside the public/static folder and return them.
+// static html controller
 const StaticController = async (req, res) => {
   // Get the request url.
   const url = parse(req.url, true);
@@ -99,11 +103,11 @@ const StaticController = async (req, res) => {
   // Get the request pathname.
   const { pathname } = url;
 
-  // Split the pathname into an array and get the third element using es6 array destructuring. i.e. If we have request url of http:localhost:8080/static/index.html, then the third element will be index.html.(/ is the first element, static is the second element and index.html is the third element)
+  // get the third element of the pathname.
   const [_, __, filename] = pathname.split("/");
 
   try {
-    // Read the file from the public/static folder.
+    // Read the html file from the public folder.
     const data = await readFile(join("public/static", filename));
 
     res.writeHead(200, { "Content-Type": "text/html" });
@@ -114,7 +118,7 @@ const StaticController = async (req, res) => {
   }
 };
 
-// This is the dynamic html controller. Will read .ejs files inside the public/dynamic folder, parse them using ejs templating engine and return them.
+// dynamic html controller
 const DynamicController = async (req, res) => {
   // Get the request url.
   const url = parse(req.url, true);
@@ -122,7 +126,7 @@ const DynamicController = async (req, res) => {
   // Get the request pathname.
   const { pathname } = url;
 
-  // Split the pathname into an array and get the third element using es6 array destructuring. i.e. If we have request url of http:localhost:8080/dynamic/index.ejs, then the third element will be index.ejs.(/ is the first element, dynamic is the second element and index.ejs is the third element)
+  // Get the third element of the pathname.
   const [_, __, filename] = pathname.split("/");
 
   try {
@@ -131,10 +135,10 @@ const DynamicController = async (req, res) => {
       join("public/dynamic", filename),
       {
         // Add some data to the template.
-        dynamicContent: "This is a dynamic html page"
+        dynamicContent: "This is a dynamic html page",
       },
       {
-        beautify: false
+        beautify: false,
       }
     );
 
